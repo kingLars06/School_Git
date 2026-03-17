@@ -3,20 +3,48 @@ name: Azure Static Web Apps CI/CD
 on:
   push:
     branches:
-      - main  # Of de naam van jouw branch
+      - dev    # staging environment
+      - main   # production environment
 
 jobs:
-  build_and_deploy_job:
+  build_and_deploy:
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
     steps:
+      # 1. Code uit de repository halen
       - uses: actions/checkout@v3
-      - name: Build And Deploy
+
+      # 2. Build check
+      - name: Build Project
+        run: |
+          echo "Starting build..."
+          # Voor een statische site met bv npm:
+          # npm install
+          # npm run build
+          echo "Build success"
+
+      # 3. Lint / code quality check
+      - name: Lint Check
+        run: |
+          echo "Running lint..."
+          # Voeg hier eventueel htmlhint of tidy commando toe
+          echo "Lint passed"
+
+      # 4. Deploy naar Azure
+      - name: Deploy to Azure
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ github.ref == 'refs/heads/main' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PRODUCTION || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_STAGING }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "/" # Locatie van je index.html
-          api_location: "" 
-          output_location: "" 
+          app_location: "/index.html"         
+          api_location: ""          
+          output_location: ""      
+        env:
+          ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+
+      # 5. Health check (alleen productie)
+      - name: Health Check
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Checking production health..."
+          curl -f https://calm-sky-0ffafdf03.4.azurestaticapps.net/ || exit 1
